@@ -36,11 +36,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.AspectRatio
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
+import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.video.MediaStoreOutputOptions
 import androidx.camera.video.Recorder
 import androidx.camera.video.Recording
@@ -114,6 +117,13 @@ private val RequiredPermissions = arrayOf(
     Manifest.permission.RECORD_AUDIO,
 )
 
+private val WideCaptureResolutionSelector = ResolutionSelector.Builder()
+    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
+    .build()
+
+private val PreviewFrameMinimumOuterPadding = 32.dp
+private val PreviewFrameMediaInset = 18.dp
+
 private sealed class CaptureStatus {
     object Starting : CaptureStatus()
     object Ready : CaptureStatus()
@@ -128,8 +138,6 @@ private data class CapturedPreview(
     val kind: MediaKind,
     val isPlaying: Boolean = false,
 )
-
-private val PreviewFrameMinimumOuterPadding = 32.dp
 
 private class AspectFitTextureView(context: Context) : TextureView(context) {
     private var videoWidth = 0
@@ -248,16 +256,22 @@ private fun PixelSnapCameraRoute() {
 
         val rotation = previewView.display?.rotation ?: Surface.ROTATION_0
         val preview = Preview.Builder()
+            .setResolutionSelector(WideCaptureResolutionSelector)
             .setTargetRotation(rotation)
             .build()
             .also { it.setSurfaceProvider(previewView.surfaceProvider) }
         val photoCapture = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .setResolutionSelector(WideCaptureResolutionSelector)
             .setTargetRotation(rotation)
             .build()
-        val movieCapture = VideoCapture.withOutput(Recorder.Builder().build()).also {
-            it.targetRotation = rotation
-        }
+        val recorder = Recorder.Builder()
+            .setAspectRatio(AspectRatio.RATIO_16_9)
+            .build()
+        val movieCapture = VideoCapture.Builder(recorder)
+            .setResolutionSelector(WideCaptureResolutionSelector)
+            .setTargetRotation(rotation)
+            .build()
 
         try {
             provider.bindToLifecycle(
@@ -657,33 +671,43 @@ private fun CapturedPreviewOverlay(
             maxHeight = maxHeight,
             aspectRatio = mediaAspectRatio,
             minimumOuterPadding = PreviewFrameMinimumOuterPadding,
+            frameInset = PreviewFrameMediaInset,
         )
         Box(
             modifier = Modifier
                 .size(frameSize.width, frameSize.height)
                 .clipToBounds()
-                .background(Color.Black),
+                .background(ClaudeGray050),
+            contentAlignment = Alignment.Center,
         ) {
-            if (preview.kind == MediaKind.Video && preview.isPlaying) {
-                FullScreenVideoPlayer(
-                    uri = preview.uri,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                val previewBitmap = bitmap
-                if (previewBitmap != null) {
-                    Image(
-                        bitmap = previewBitmap,
-                        contentDescription = null,
+            Box(
+                modifier = Modifier
+                    .size(frameSize.mediaWidth, frameSize.mediaHeight)
+                    .clipToBounds()
+                    .background(Color.Black),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (preview.kind == MediaKind.Video && preview.isPlaying) {
+                    FullScreenVideoPlayer(
+                        uri = preview.uri,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit,
                     )
+                } else {
+                    val previewBitmap = bitmap
+                    if (previewBitmap != null) {
+                        Image(
+                            bitmap = previewBitmap,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit,
+                        )
+                    }
+                }
+                if (preview.kind == MediaKind.Video && !preview.isPlaying) {
+                    VideoPreviewPlayButton()
                 }
             }
             PreviewFrameOverlay()
-            if (preview.kind == MediaKind.Video && !preview.isPlaying) {
-                VideoPreviewPlayButton()
-            }
         }
     }
 }
@@ -691,6 +715,8 @@ private fun CapturedPreviewOverlay(
 private data class PreviewFrameSize(
     val width: Dp,
     val height: Dp,
+    val mediaWidth: Dp,
+    val mediaHeight: Dp,
 )
 
 private fun calculateFittedFrameSize(
@@ -698,19 +724,30 @@ private fun calculateFittedFrameSize(
     maxHeight: Dp,
     aspectRatio: Float,
     minimumOuterPadding: Dp,
+    frameInset: Dp,
 ): PreviewFrameSize {
-    val availableWidth = (maxWidth - minimumOuterPadding * 2f).coerceAtLeast(1.dp)
-    val availableHeight = (maxHeight - minimumOuterPadding * 2f).coerceAtLeast(1.dp)
+    val availableWidth = (maxWidth - minimumOuterPadding * 2f - frameInset * 2f)
+        .coerceAtLeast(1.dp)
+    val availableHeight = (maxHeight - minimumOuterPadding * 2f - frameInset * 2f)
+        .coerceAtLeast(1.dp)
     val availableAspectRatio = availableWidth.value / availableHeight.value
     return if (availableAspectRatio > aspectRatio) {
+        val mediaWidth = availableHeight * aspectRatio
+        val mediaHeight = availableHeight
         PreviewFrameSize(
-            width = availableHeight * aspectRatio,
-            height = availableHeight,
+            width = mediaWidth + frameInset * 2f,
+            height = mediaHeight + frameInset * 2f,
+            mediaWidth = mediaWidth,
+            mediaHeight = mediaHeight,
         )
     } else {
+        val mediaWidth = availableWidth
+        val mediaHeight = availableWidth / aspectRatio
         PreviewFrameSize(
-            width = availableWidth,
-            height = availableWidth / aspectRatio,
+            width = mediaWidth + frameInset * 2f,
+            height = mediaHeight + frameInset * 2f,
+            mediaWidth = mediaWidth,
+            mediaHeight = mediaHeight,
         )
     }
 }
@@ -731,8 +768,7 @@ private fun PreviewFrameOverlay(
 ) {
     Canvas(modifier = modifier.fillMaxSize()) {
         val outerInset = 2.dp.toPx()
-        val middleInset = 7.dp.toPx()
-        val innerInset = 12.dp.toPx()
+        val innerInset = 11.dp.toPx()
         val outerStroke = 2.dp.toPx()
         val innerStroke = 1.5.dp.toPx()
 
@@ -749,8 +785,7 @@ private fun PreviewFrameOverlay(
         }
 
         framedRect(outerInset, ClaudeSlateDark.copy(alpha = 0.76f), outerStroke)
-        framedRect(middleInset, ClaudeClay.copy(alpha = 0.72f), innerStroke)
-        framedRect(innerInset, ClaudeSlateDark.copy(alpha = 0.62f), innerStroke)
+        framedRect(innerInset, ClaudeClay.copy(alpha = 0.72f), innerStroke)
     }
 }
 

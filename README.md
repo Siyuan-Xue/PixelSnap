@@ -8,11 +8,12 @@ PixelSnap is a minimal retro pixel camera for taking photos and recording short 
 - Tap the live view to take a photo.
 - Long-press the live view to start video recording, then tap to stop.
 - Video recording with microphone audio.
+- Photos and videos default to a 16:9 capture ratio.
 - Photos saved to `DCIM/Camera` with a bottom-right text-only PixelSnap watermark.
 - Videos saved to `DCIM/Camera`.
 - Captured photos preview briefly inside the viewfinder and can be dismissed by tap.
 - Captured videos preview full-screen with a centered play control; tap the control to play or tap elsewhere to return to live camera.
-- Media previews size the framed-print border from the original photo/video aspect ratio, centered with warm-white space outside it.
+- Media previews size the framed-print border from the original photo/video aspect ratio, with the border outside the media pixels and warm-white space beyond it.
 - The screen stays awake while PixelSnap is active.
 - One stable full-screen camera surface for portrait and landscape orientation changes.
 - Restrained capture guides: four thick corner marks and one center square, hidden during media preview.
