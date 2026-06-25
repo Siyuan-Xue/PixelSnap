@@ -36,4 +36,37 @@ class PixelSnapMediaTest {
 
         assertTrue(formatted.matches(Regex("""\d{4}\.\d{2}\.\d{2}""")))
     }
+
+    @Test
+    fun videoDisplayDimensionsUsesPortraitShapeWhenLandscapeEncodedVideoHasRotation() {
+        val dimensions = videoDisplayDimensionsForPreview(
+            encodedWidth = 1920,
+            encodedHeight = 1080,
+            rotationDegrees = 90,
+        )
+
+        assertEquals(1080, dimensions?.width)
+        assertEquals(1920, dimensions?.height)
+        assertEquals(9f / 16f, dimensions?.aspectRatio ?: 0f, 0.001f)
+    }
+
+    @Test
+    fun videoDisplayDimensionsKeepsAlreadyPortraitQuarterTurnMetadata() {
+        val dimensions = videoDisplayDimensionsForPreview(
+            encodedWidth = 1080,
+            encodedHeight = 1920,
+            rotationDegrees = 90,
+        )
+
+        assertEquals(1080, dimensions?.width)
+        assertEquals(1920, dimensions?.height)
+        assertEquals(9f / 16f, dimensions?.aspectRatio ?: 0f, 0.001f)
+    }
+
+    @Test
+    fun videoPreviewFrameRotationAvoidsDoubleRotatingPortraitFrames() {
+        assertEquals(90, videoPreviewFrameRotationDegrees(1920, 1080, 90))
+        assertEquals(0, videoPreviewFrameRotationDegrees(1080, 1920, 90))
+        assertEquals(180, videoPreviewFrameRotationDegrees(1080, 1920, 180))
+    }
 }

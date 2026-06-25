@@ -16,6 +16,14 @@ data class MediaSpec(
     val capturedAtMillis: Long,
 )
 
+internal data class VideoDisplayDimensions(
+    val width: Int,
+    val height: Int,
+) {
+    val aspectRatio: Float
+        get() = width.toFloat() / height.toFloat()
+}
+
 object PixelSnapMedia {
     const val ALBUM_NAME = "PixelSnap"
     const val FILE_PREFIX = "PixelSnap_"
@@ -47,3 +55,41 @@ object PixelSnapMedia {
     fun formatCaptureDate(capturedAtMillis: Long): String =
         SimpleDateFormat("yyyy.MM.dd", Locale.US).format(Date(capturedAtMillis))
 }
+
+internal fun videoDisplayDimensionsForPreview(
+    encodedWidth: Int,
+    encodedHeight: Int,
+    rotationDegrees: Int,
+): VideoDisplayDimensions? {
+    if (encodedWidth <= 0 || encodedHeight <= 0) return null
+    val normalizedRotation = normalizeVideoRotationDegrees(rotationDegrees)
+    return if (normalizedRotation.isQuarterTurnDegrees() && encodedWidth >= encodedHeight) {
+        VideoDisplayDimensions(width = encodedHeight, height = encodedWidth)
+    } else {
+        VideoDisplayDimensions(width = encodedWidth, height = encodedHeight)
+    }
+}
+
+internal fun videoPreviewFrameRotationDegrees(
+    frameWidth: Int,
+    frameHeight: Int,
+    rotationDegrees: Int,
+): Int {
+    val normalizedRotation = normalizeVideoRotationDegrees(rotationDegrees)
+    return if (normalizedRotation.isQuarterTurnDegrees() && frameWidth < frameHeight) {
+        0
+    } else {
+        normalizedRotation
+    }
+}
+
+internal fun normalizeVideoRotationDegrees(rotationDegrees: Int?): Int {
+    val normalized = (((rotationDegrees ?: 0) % 360) + 360) % 360
+    return when (normalized) {
+        90, 180, 270 -> normalized
+        else -> 0
+    }
+}
+
+private fun Int.isQuarterTurnDegrees(): Boolean =
+    this == 90 || this == 270

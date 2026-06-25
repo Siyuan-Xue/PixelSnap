@@ -145,7 +145,7 @@ private class AspectFitTextureView(context: Context) : TextureView(context) {
     private var rotationDegrees = 0
 
     fun setVideoGeometry(width: Int, height: Int, rotation: Int) {
-        val normalizedRotation = rotation.normalizedRightAngleDegrees()
+        val normalizedRotation = normalizeVideoRotationDegrees(rotation)
         if (
             videoWidth == width &&
             videoHeight == height &&
@@ -167,15 +167,21 @@ private class AspectFitTextureView(context: Context) : TextureView(context) {
             return
         }
 
-        val displayWidth = if (rotationDegrees.isQuarterTurn()) videoHeight else videoWidth
-        val displayHeight = if (rotationDegrees.isQuarterTurn()) videoWidth else videoHeight
+        val displayDimensions = videoDisplayDimensionsForPreview(
+            encodedWidth = videoWidth,
+            encodedHeight = videoHeight,
+            rotationDegrees = rotationDegrees,
+        ) ?: run {
+            setMeasuredDimension(maxWidth, maxHeight)
+            return
+        }
         val scale = min(
-            maxWidth.toFloat() / displayWidth.toFloat(),
-            maxHeight.toFloat() / displayHeight.toFloat(),
+            maxWidth.toFloat() / displayDimensions.width.toFloat(),
+            maxHeight.toFloat() / displayDimensions.height.toFloat(),
         )
-        val measuredWidth = (displayWidth * scale).roundToInt()
+        val measuredWidth = (displayDimensions.width * scale).roundToInt()
             .coerceIn(1, maxWidth)
-        val measuredHeight = (displayHeight * scale).roundToInt()
+        val measuredHeight = (displayDimensions.height * scale).roundToInt()
             .coerceIn(1, maxHeight)
         setMeasuredDimension(measuredWidth, measuredHeight)
     }
@@ -1169,10 +1175,16 @@ private fun android.content.ContentResolver.loadVideoPreviewFrame(uri: Uri): Bit
             retriever.setDataSource(descriptor.fileDescriptor)
             val rotationDegrees = retriever.extractMetadata(
                 MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION,
-            )?.toIntOrNull().orZeroRightAngleDegrees()
+            )?.toIntOrNull().let(::normalizeVideoRotationDegrees)
             val frame = retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
                 ?: retriever.frameAtTime
-            frame?.rotateRightAngle(rotationDegrees)
+            frame?.rotateRightAngle(
+                videoPreviewFrameRotationDegrees(
+                    frameWidth = frame.width,
+                    frameHeight = frame.height,
+                    rotationDegrees = rotationDegrees,
+                ),
+            )
         }
     } catch (_: Exception) {
         null
@@ -1188,7 +1200,7 @@ private fun android.content.ContentResolver.loadVideoRotationDegrees(uri: Uri): 
             retriever.setDataSource(descriptor.fileDescriptor)
             retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
                 ?.toIntOrNull()
-                .orZeroRightAngleDegrees()
+                .let(::normalizeVideoRotationDegrees)
         } ?: 0
     } catch (_: Exception) {
         0
@@ -1210,14 +1222,8 @@ private fun android.content.ContentResolver.loadVideoAspectRatio(uri: Uri): Floa
                 ?: return@use null
             val rotationDegrees = retriever.extractMetadata(
                 MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION,
-            )?.toIntOrNull().orZeroRightAngleDegrees()
-            val displayWidth = if (rotationDegrees.isQuarterTurn()) height else width
-            val displayHeight = if (rotationDegrees.isQuarterTurn()) width else height
-            if (displayWidth > 0 && displayHeight > 0) {
-                displayWidth.toFloat() / displayHeight.toFloat()
-            } else {
-                null
-            }
+            )?.toIntOrNull().let(::normalizeVideoRotationDegrees)
+            videoDisplayDimensionsForPreview(width, height, rotationDegrees)?.aspectRatio
         }
     } catch (_: Exception) {
         null
@@ -1227,7 +1233,7 @@ private fun android.content.ContentResolver.loadVideoAspectRatio(uri: Uri): Floa
 }
 
 private fun Bitmap.rotateRightAngle(rotationDegrees: Int): Bitmap {
-    val normalizedRotation = rotationDegrees.normalizedRightAngleDegrees()
+    val normalizedRotation = normalizeVideoRotationDegrees(rotationDegrees)
     if (normalizedRotation == 0) return this
     val rotated = Bitmap.createBitmap(
         this,
@@ -1241,17 +1247,3 @@ private fun Bitmap.rotateRightAngle(rotationDegrees: Int): Bitmap {
     recycle()
     return rotated
 }
-
-private fun Int?.orZeroRightAngleDegrees(): Int =
-    this?.normalizedRightAngleDegrees() ?: 0
-
-private fun Int.normalizedRightAngleDegrees(): Int {
-    val normalized = ((this % 360) + 360) % 360
-    return when (normalized) {
-        90, 180, 270 -> normalized
-        else -> 0
-    }
-}
-
-private fun Int.isQuarterTurn(): Boolean =
-    this == 90 || this == 270

@@ -12,7 +12,7 @@ PixelSnap is a minimal retro pixel camera for taking photos and recording short 
 - Photos saved to `DCIM/Camera` with a bottom-right text-only PixelSnap watermark.
 - Videos saved to `DCIM/Camera`.
 - Captured photos preview briefly inside the viewfinder and can be dismissed by tap.
-- Captured videos preview full-screen with a centered play control; tap the control to play or tap elsewhere to return to live camera.
+- Captured videos preview full-screen with rotation-aware sizing and a centered play control; tap the control to play or tap elsewhere to return to live camera.
 - Media previews size the framed-print border from the original photo/video aspect ratio, with the border outside the media pixels and warm-white space beyond it.
 - The screen stays awake while PixelSnap is active.
 - One stable full-screen camera surface for portrait and landscape orientation changes.
@@ -40,13 +40,13 @@ PixelSnap is a minimal retro pixel camera for taking photos and recording short 
 
 ```text
 app/build/outputs/apk/debug/app-debug.apk
-app/build/outputs/apk/debug/PixelSnap-0.1.0-debug.apk
+app/build/outputs/apk/debug/PixelSnap-0.1.1-debug.apk
 ```
 
 ## Installation
 
 ```powershell
-adb install -r app/build/outputs/apk/debug/PixelSnap-0.1.0-debug.apk
+adb install -r app/build/outputs/apk/debug/PixelSnap-0.1.1-debug.apk
 ```
 
 ## Status

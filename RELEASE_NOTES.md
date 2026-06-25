@@ -1,10 +1,8 @@
-PixelSnap v0.1.0 is the first MVP debug build of the minimal pixel camera.
+PixelSnap v0.1.1 is a bug-fix debug build that previews portrait videos with the correct orientation-aware frame.
 
 Highlights:
-
-- Full-screen one-surface CameraX capture with tap-to-photo and long-press video recording.
-- Photos and videos save to `DCIM/Camera`, with PixelSnap photos receiving a bottom-right text watermark.
-- In-app photo and video previews use an aspect-ratio-aware framed print treatment with warm-white space outside the media.
-- Portrait and landscape rotation are handled without intentionally rebinding the camera surface.
+- Corrects portrait video preview sizing so vertical clips no longer appear as landscape with side padding.
+- Shares one video geometry path for preview thumbnails and playback.
+- Refreshes the launcher foreground scale for a clearer PixelPark camera mark.
 
 The attached APK is a debug build for testing and demo use.
